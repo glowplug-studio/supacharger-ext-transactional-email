@@ -1,0 +1,20 @@
+meta {
+  name: Worker configuration check
+  type: http
+  seq: 1
+}
+post {
+  url: {{base_url}}/functions/v1/ext-transactional-email-{{project_namespace}}
+  body: json
+  auth: none
+}
+headers {
+  Authorization: Bearer {{transactional_email_worker_secret}}
+  Content-Type: application/json
+}
+body:json {
+  {"action":"check"}
+}
+docs {
+  Privileged, non-sending worker check. Platform JWT verification is disabled; the worker requires its separate namespaced secret. Confirms selected provider, transport and database dispatch state. Does not prove inbox delivery. Process and selected retry commands can send real mail; do not use them without an authorised test recipient or selected recovery request. All results are redacted.
+}
