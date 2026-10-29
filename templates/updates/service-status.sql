@@ -24,6 +24,6 @@ create function __SCHEMA__.service_status(input jsonb) returns jsonb language sq
 select __SCHEMA__.delivery_status((input #>> '{}')::uuid);
 $$;
 revoke all on function __SCHEMA__.service_status(jsonb) from public,anon,authenticated,service_role;
-insert into sc_services.bindings(service_name,operation,implementation,contract_version,handler)
+insert into __SERVICES__.bindings(service_name,operation,implementation,contract_version,handler)
 values('transactional_email','status','supacharger-ext-transactional-email',1,'__SCHEMA__.service_status(jsonb)')
 on conflict(service_name,operation) do update set implementation=excluded.implementation,contract_version=excluded.contract_version,handler=excluded.handler;

@@ -8,7 +8,7 @@ const commandSchema = z.discriminatedUnion('action', [
 ]);
 type Database = { rpc: (name: string, args?: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }> };
 export function createWorker(settings: Settings, env: Environment, adapter: Adapter, database: () => Database) {
-  const rpcPrefix = `${settings.prefix}_ext_tx_`;
+  const rpcPrefix = 'ext_tx_';
   const reply = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
   return async (request: Request): Promise<Response> => {
     if (request.method !== 'POST') return reply({ error: 'Use POST' }, 405);

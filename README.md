@@ -8,4 +8,6 @@ Brevo uses hosted templates. Resend and Mailgun support hosted templates or rend
 
 The private durable queue supports transaction-safe enqueue, eligibility rechecks, atomic leases, selected blocked recovery and conservative handling of ambiguous sends. Provider acceptance does not imply inbox delivery.
 
-See [installation and API guidance](payload/docs/INSTALL.md) and [Bruno requests](payload/docs/bruno/). Run `npm install` and `npm run check` for source checks. Prepare an application with `node scripts/prepare.mjs /path/to/application <CLI-created-migration-filename>`; install its reviewed `.prepared/<namespace>` payload using Core’s local extension installer. Release/archive metadata is separate from local package preparation.
+See [installation and API guidance](payload/docs/INSTALL.md) and [Bruno requests](payload/docs/bruno/). Run `npm install` and `npm run check` for source checks. Prepare an application with `node scripts/prepare.mjs /path/to/application <CLI-created-migration-filename>`; install its reviewed `.prepared/<code>` payload (`.prepared/default` for an empty code) using the CLI’s local extension installer. Release/archive metadata is separate from local package preparation.
+
+Preparation reads only the host's `PROJECT_NAMESPACE` in `src/supacharger.config.ts`. Empty selects `sc_`; a 1–6 character code such as `wake` selects `sc_wake_`. SQL and workers are rendered before installation; no separate namespace setting is required.

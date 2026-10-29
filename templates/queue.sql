@@ -85,7 +85,7 @@ begin
   return __SCHEMA__.enqueue((select jsonb_agg(jsonb_build_object('message',value)) from jsonb_array_elements(messages)));
 end;
 $$;
-create function api_edge.__RPC__enqueue(messages jsonb) returns jsonb language sql security definer set search_path='' as $$ select __SCHEMA__.enqueue_messages(messages); $$;
+create function __API_EDGE__.__RPC__enqueue(messages jsonb) returns jsonb language sql security definer set search_path='' as $$ select __SCHEMA__.enqueue_messages(messages); $$;
 
 create function __SCHEMA__.dispatch(delivery_ids uuid[] default null) returns void language plpgsql security definer set search_path='' as $$
 declare endpoint text; secret text;
@@ -105,10 +105,10 @@ begin perform __SCHEMA__.dispatch(); return null; end;
 $$;
 create trigger dispatch_inserted after insert on __SCHEMA__.deliveries for each statement execute function __SCHEMA__.dispatch_inserted();
 
-create function api_edge.__RPC__configuration() returns jsonb language sql security definer set search_path='' as $$
+create function __API_EDGE__.__RPC__configuration() returns jsonb language sql security definer set search_path='' as $$
 select jsonb_build_object('provider',provider,'transport',transport,'enabled',enabled) from __SCHEMA__.settings where setting_id;
 $$;
-create function api_edge.__RPC__claim(delivery_ids uuid[], expected_provider text, expected_transport text) returns jsonb language plpgsql security definer set search_path='' as $$
+create function __API_EDGE__.__RPC__claim(delivery_ids uuid[], expected_provider text, expected_transport text) returns jsonb language plpgsql security definer set search_path='' as $$
 declare job __SCHEMA__.deliveries%rowtype; handler record; refreshed jsonb; result jsonb:='[]'; token uuid;
 begin
   if not exists(select 1 from __SCHEMA__.settings where enabled and provider=expected_provider and transport=expected_transport) then raise exception 'Worker selection unavailable' using errcode='55000'; end if;
@@ -122,7 +122,7 @@ begin
     select p.*,n.nspname into handler from __SCHEMA__.resolvers r join pg_proc p on p.oid=r.handler::oid join pg_namespace n on n.oid=p.pronamespace
       where r.template_key=job.message->'content'->>'key';
     if found then
-      if handler.prokind<>'f' or handler.proretset or handler.pronargs<>1 or handler.proargtypes<>'3802'::oidvector or handler.prorettype<>'jsonb'::regtype or handler.provariadic<>0 or handler.pronargdefaults<>0 or handler.nspname in ('public','api','api_edge','mcp_api') then raise exception 'Invalid resolver'; end if;
+      if handler.prokind<>'f' or handler.proretset or handler.pronargs<>1 or handler.proargtypes<>'3802'::oidvector or handler.prorettype<>'jsonb'::regtype or handler.provariadic<>0 or handler.pronargdefaults<>0 or handler.nspname in ('public','__API__','__API_EDGE__','__MCP_API__') then raise exception 'Invalid resolver'; end if;
       execute format('select %I.%I($1)',handler.nspname,handler.proname) into refreshed using jsonb_build_object('message',job.message,'context',job.context);
     elsif job.context<>'{}'::jsonb then refreshed:=null;
     end if;
@@ -138,7 +138,7 @@ begin
   return result;
 end;
 $$;
-create function api_edge.__RPC__finish(delivery_id uuid, lease_token uuid, outcome jsonb) returns void language plpgsql security definer set search_path='' as $$
+create function __API_EDGE__.__RPC__finish(delivery_id uuid, lease_token uuid, outcome jsonb) returns void language plpgsql security definer set search_path='' as $$
 declare state text:=outcome->>'state'; delay_seconds integer:=coalesce((outcome->>'retryAfter')::integer,60);
 begin
   if jsonb_typeof(outcome) is distinct from 'object' or state is null or state not in ('accepted','retryable','blocked','uncertain') or
@@ -152,7 +152,7 @@ begin
   if not found then raise exception 'Stale delivery lease' using errcode='22023'; end if;
 end;
 $$;
-create function api_edge.__RPC__retry(delivery_ids uuid[]) returns void language plpgsql security definer set search_path='' as $$
+create function __API_EDGE__.__RPC__retry(delivery_ids uuid[]) returns void language plpgsql security definer set search_path='' as $$
 declare total integer;
 begin
   if delivery_ids is null or cardinality(delivery_ids) not between 1 and 20 or cardinality(delivery_ids)<>(select count(distinct id) from unnest(delivery_ids) id) then raise exception 'Invalid selection' using errcode='22023'; end if;
@@ -166,9 +166,9 @@ create function __SCHEMA__.delivery_status(delivery_id uuid) returns jsonb langu
 select jsonb_build_object('status',status,'reason',reason,'provider_reference',provider_reference) from __SCHEMA__.deliveries d where d.delivery_id=delivery_status.delivery_id;
 $$;
 revoke all on all functions in schema __SCHEMA__ from public,anon,authenticated,service_role;
-revoke all on function api_edge.__RPC__enqueue(jsonb), api_edge.__RPC__configuration(), api_edge.__RPC__claim(uuid[],text,text), api_edge.__RPC__finish(uuid,uuid,jsonb), api_edge.__RPC__retry(uuid[]) from public,anon,authenticated;
-grant execute on function api_edge.__RPC__enqueue(jsonb), api_edge.__RPC__configuration(), api_edge.__RPC__claim(uuid[],text,text), api_edge.__RPC__finish(uuid,uuid,jsonb), api_edge.__RPC__retry(uuid[]) to service_role;
-insert into sc_services.bindings(service_name,operation,implementation,contract_version,handler) values
+revoke all on function __API_EDGE__.__RPC__enqueue(jsonb), __API_EDGE__.__RPC__configuration(), __API_EDGE__.__RPC__claim(uuid[],text,text), __API_EDGE__.__RPC__finish(uuid,uuid,jsonb), __API_EDGE__.__RPC__retry(uuid[]) from public,anon,authenticated;
+grant execute on function __API_EDGE__.__RPC__enqueue(jsonb), __API_EDGE__.__RPC__configuration(), __API_EDGE__.__RPC__claim(uuid[],text,text), __API_EDGE__.__RPC__finish(uuid,uuid,jsonb), __API_EDGE__.__RPC__retry(uuid[]) to service_role;
+insert into __SERVICES__.bindings(service_name,operation,implementation,contract_version,handler) values
  ('transactional_email','enqueue','supacharger-ext-transactional-email',1,'__SCHEMA__.enqueue_messages(jsonb)'),
  ('transactional_email','enqueue_context','supacharger-ext-transactional-email',1,'__SCHEMA__.enqueue(jsonb)')
 on conflict(service_name,operation) do update set implementation=excluded.implementation,contract_version=excluded.contract_version,handler=excluded.handler;
