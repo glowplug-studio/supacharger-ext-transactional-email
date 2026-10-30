@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --import ./test/register.mjs --test test/*.test.mjs",
+    "check": "node scripts/verify.mjs && node --import ./test/register.mjs --test test/*.test.mjs",
     "prepare:project": "node scripts/prepare.mjs"
   },
   "devDependencies": {

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { createManifest, verifyContract } from './contract.mjs';
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const [rootArg, migrationArg] = process.argv.slice(2);
 if (!rootArg || !migrationArg) throw new Error('Usage: node scripts/prepare.mjs <application-root> <CLI-created-migration-filename>');
@@ -66,14 +67,8 @@ if (installedMigrations.length) {
 }
 const kinds = config.provider === 'brevo' ? ['template'] : config.provider === 'smtp' ? ['rendered'] : ['template','rendered'];
 fs.writeFileSync(path.join(output,'payload/app/index.ts'), `import 'server-only';\nimport { createTransactionalEmailService } from '@/supacharger/services/transactional-email';\nexport { transactionalMessageSchema } from '@/supacharger/services/transactional-email';\nexport type { TransactionalMessage } from '@/supacharger/services/transactional-email';\nexport const binding = ${JSON.stringify({enqueueRpc:names.rpcPrefix+'enqueue',contentKinds:kinds})} as const;\nexport const createService = (database: Parameters<typeof createTransactionalEmailService>[0]) => createTransactionalEmailService(database,binding);\n`);
-const payloadTarget = (id, source) => {
-  const mappings = { 'payload/app/': `src/app/(project)/(extensions)/(sc_extensions)/(${id})/`, 'payload/supabase/shared/': `supabase/functions/_shared/extensions/sc_ext-${id}/`, 'payload/supabase/functions/': 'supabase/functions/', 'payload/supabase/migrations/': 'supabase/migrations/', 'payload/supabase/schemas/': `supabase/schemas/extensions/${id}/`, 'payload/docs/': `docs/extensions/${id}/`, 'payload/agents/': `docs/agents/extensions/supacharger-ext-${id}/` };
-  for (const [prefix, destination] of Object.entries(mappings)) if (source.startsWith(prefix)) return destination + source.slice(prefix.length);
-  throw new Error('Unsupported payload path');
-};
-const files=[];
-function walk(relative){for(const entry of fs.readdirSync(path.join(output,relative),{withFileTypes:true})){const filename=`${relative}/${entry.name}`;if(entry.isDirectory())walk(filename);else{const kind=filename===`payload/app/supacharger-ext-transactional-email.config.ts`?'config':filename.startsWith('payload/supabase/migrations/')?'migration':filename.startsWith('payload/supabase/schemas/')?'schema':undefined;files.push({source:filename,target:payloadTarget('transactional-email',filename),...(kind?{kind}:{})});}}}
-walk('payload'); files.sort((a,b)=>a.target.localeCompare(b.target));
-const manifest={schemaVersion:3,id:'transactional-email',name:'supacharger-ext-transactional-email',version:'0.1.4',coreOwnershipVersion:2,preparedNamespace:namespace,dependencies:[],core_services:[],files};
+const pkg = JSON.parse(fs.readFileSync(path.join(source, 'package.json'), 'utf8'));
+const manifest = createManifest(output, pkg, { preparedNamespace: namespace });
+verifyContract(output, manifest, pkg);
 fs.writeFileSync(path.join(output,'extension.json'),JSON.stringify(manifest,null,2)+'\n');
 console.log(JSON.stringify({output,names,provider:config.provider,migration}));
