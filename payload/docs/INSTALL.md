@@ -18,3 +18,7 @@ SMTP uses authenticated TLS with certificate verification, a pinned Nodemailer d
 Provider selection is compiled into the prepared worker. Changing it requires another preparation and deployment with an explicit pending-job decision. The generated SQL and worker source show the installed namespace, secret names and selected provider import. Config stays developer-owned; installed source and generated output are extension-managed. Never rewrite applied migrations.
 
 Installed migration bytes remain immutable. Preparation recognises explicit forward schema renames in the host migration history and refuses a conflicting installation namespace. A newly prepared package is specific to its host namespace; do not reuse it in another project without preparing it again.
+
+## Declarative database definitions
+
+The package also supplies current SQL definitions under `payload/supabase/schemas/`. A schema-aware installer renders default `sc_` names from the application’s `PROJECT_NAMESPACE` and installs them into `supabase/schemas/extensions/transactional-email/`. Keep each database object declared once. Preserve installed migrations, registration/configuration rows and existing data. Review a local desired-state plan before creating and deploying a forward migration; copying files does not apply SQL. See the host’s `docs/agents/declarative-database.md`.
